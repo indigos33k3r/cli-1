@@ -129,6 +129,18 @@ func GetStreamingLogs(appGUID string, client LogCacheClient) (<-chan LogMessage,
 	go func() {
 		defer close(outgoingLogStream)
 		defer close(outgoingErrStream)
+		
+		r := func(ctx context.Context, sourceID string, start time.Time, opts ...ReadOption) ([]*loggregator_v2.Envelope, error) {
+			os := []logcache.ReadOption{
+				logcache.WithLimit(1),
+				logcache.WithDescending(),
+			}
+			for _, o := range opts {
+				os = append(os, o)
+			}
+
+			return client.Read(ctx, sourceID, start, os)
+		}
 
 		var (
 			mostRecentEnvelopes []*loggregator_v2.Envelope
@@ -136,12 +148,25 @@ func GetStreamingLogs(appGUID string, client LogCacheClient) (<-chan LogMessage,
 		)
 
 		for len(mostRecentEnvelopes) == 0 {
+		logcache.Walk(
+			ctx,
+			appGUID,
+			logcache.Visitor(func(envelopes []*loggregator_v2.Envelope) bool {
+
+				return true
+			}),
+			r,
+			logcache.WithWalkStartTime(time.Unix(0, walkStartTime)),
+			logcache.WithWalkEnvelopeTypes(logcache_v1.EnvelopeType_LOG),
+			logcache.WithWalkBackoff(newCliRetryBackoff(retryInterval, retryCount)),
+			logcache.WithWalkLogger(log.New(channelWriter{
+				errChannel: outgoingErrStream,
+			}, "", 0)),
+		
 			mostRecentEnvelopes, err = client.Read(
 				ctx,
 				appGUID,
 				time.Time{},
-				logcache.WithLimit(1),
-				logcache.WithDescending(),
 			)
 			if err != nil {
 				outgoingErrStream <- err
