@@ -135,6 +135,7 @@ func GetStreamingLogs(appGUID string, client LogCacheClient) (<-chan LogMessage,
 			err                 error
 		)
 
+		// GetWalkStartTime()
 		for len(mostRecentEnvelopes) == 0 {
 			mostRecentEnvelopes, err = client.Read(
 				ctx,

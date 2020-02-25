@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Logging Actions", func() {
+var _ = FDescribe("Logging Actions", func() {
 	var (
 		fakeLogCacheClient *sharedactionfakes.FakeLogCacheClient
 	)
@@ -192,15 +192,19 @@ var _ = Describe("Logging Actions", func() {
 
 			// Error handling is now done by the initial client.Read() call
 			// Error handling used to be done by the client.Walk() function, which had retry logic
-			It("passes one error through the errors channel", func() {
-				Eventually(errs, 2*time.Second).Should(HaveLen(1))
+			It("passes 5 errors through the errors channel", func() {
+				Eventually(errs, 2*time.Second).Should(HaveLen(5))
 				Eventually(errs).Should(Receive(MatchError("error number 1")))
-				Eventually(errs).ShouldNot(Receive(MatchError("error number 2")))
+				Eventually(errs).Should(Receive(MatchError("error number 2")))
+				Eventually(errs).Should(Receive(MatchError("error number 3")))
+				Eventually(errs).Should(Receive(MatchError("error number 4")))
+				Eventually(errs).Should(Receive(MatchError("error number 5")))
+				Eventually(errs).ShouldNot(Receive(MatchError("error number 6")))
 			})
 
-			It("retries exactly 1 times", func() {
-				Eventually(fakeLogCacheClient.ReadCallCount, 2*time.Second).Should(Equal(1))
-				Consistently(fakeLogCacheClient.ReadCallCount, 2*time.Second).Should(Equal(1))
+			It("retries exactly 5 times", func() {
+				Eventually(fakeLogCacheClient.ReadCallCount, 2*time.Second).Should(Equal(5))
+				Consistently(fakeLogCacheClient.ReadCallCount, 2*time.Second).Should(Equal(5))
 			})
 		})
 	})
